@@ -1,0 +1,31 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_auth": "Invalid authentication",
+            "login_failed": "Unable to process Sign, please check the account and password",
+            "unknown": "Unexpected error"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "server_country": "Country",
+                    "server_username": "Email address",
+                    "server_password": "Password"
+                },
+                "description": "Log in to the Aidot cloud, see https://www.aidot.com#country-servers for the cloud server to use.",
+                "title": "Aidot"
+            },
+            "choose_house": {
+                "data": {
+                    "choose_house": "Choose house"
+                },
+                "description": "Please select a room.",
+                "title": "Aidot"
+            }
+        }
+    }
+}
