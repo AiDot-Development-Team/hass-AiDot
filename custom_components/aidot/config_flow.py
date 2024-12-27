@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aidot.login_control import LoginControl
+from .login_control import LoginControl
 import voluptuous as vol
 
 from homeassistant import config_entries, exceptions

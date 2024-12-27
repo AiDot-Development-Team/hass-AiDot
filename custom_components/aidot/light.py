@@ -4,7 +4,7 @@ import ctypes
 import logging
 from typing import Any
 
-from aidot.lan import Lan
+from .lan import Lan
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
