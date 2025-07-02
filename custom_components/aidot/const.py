@@ -7,6 +7,8 @@ CONF_PASSWORD = "server_password"
 CONF_SERVER_COUNTRY = "server_country"
 
 CONF_CHOOSE_HOUSE = "choose_house"
+CONF_USE_MANUAL_IPS = "use_manual_ips"
+CONF_MANUAL_IPS = "manual_ips"
 
 CLOUD_SERVERS = [
     {"_id": "1-0", "id": "AL", "name": "Albania", "ext": "", "region": "EU"},
@@ -169,3 +171,5 @@ CLOUD_SERVERS = [
     {"_id": "22-2", "id": "VN", "name": "Vietnam", "ext": "", "region": "JP"},
     {"_id": "23-0", "id": "YE", "name": "Yemen", "ext": "", "region": "JP"},
 ]
+
+CONF_LOGIN_INFO = "login_info"

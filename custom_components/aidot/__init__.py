@@ -2,62 +2,71 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import logging
-from typing import Any
 
-from aidot.discover import Discover
+from .helpers import PatchedAidotClient as AidotClient
+from aidot.exceptions import AidotAuthFailed
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import CONF_LOGIN_INFO, CONF_MANUAL_IPS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.LIGHT]
+PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up aidot from a config entry."""
 
-    hass.data.setdefault(DOMAIN, {})["device_list"] = entry.data["device_list"]
-    hass.data.setdefault(DOMAIN, {})["login_response"] = entry.data["login_response"]
-    hass.data.setdefault(DOMAIN, {})["products"] = entry.data["product_list"]
+    session = async_get_clientsession(hass)
+    client = AidotClient(session, token=entry.data[CONF_LOGIN_INFO])
 
-    def discover(devId, event: Mapping[str, Any]):
-        hass.bus.async_fire(devId, event)
+    try:
+        house_id = entry.data["selected_house"]["id"]
+        devices = await client.async_get_devices(house_id)
+    except AidotAuthFailed:
+        _LOGGER.error("Authentication failed while setting up entry")
+        return False
+    except KeyError:
+        _LOGGER.error("Failed to get selected_house from config entry")
+        return False
 
-    await Discover().broadcast_message(
-        discover, hass.data[DOMAIN]["login_response"]["id"]
-    )
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "client": client,
+        "devices": devices,
+    }
+
+    manual_ips = entry.data.get(CONF_MANUAL_IPS)
+    if manual_ips:
+        _LOGGER.debug(f"Applying manual IPs: {manual_ips}")
+        for device in devices:
+            dev_id = device.get("id")
+            if dev_id in manual_ips:
+                ip_address = manual_ips[dev_id]
+                if ip_address:
+                    _LOGGER.debug(
+                        f"Applying manual IP {ip_address} to device {dev_id}"
+                    )
+                    device_client = client.get_device_client(device)
+                    device_client.update_ip_address(ip_address, manual=True)
+
+    client.start_discover()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
 
-async def cleanup_device_registry(hass: HomeAssistant) -> None:
-    """Remove deleted device registry entry if there are no remaining entities."""
-    device_registry = dr.async_get(hass)
-    for dev_id, device_entry in list(device_registry.devices.items()):
-        for item in device_entry.identifiers:
-            _LOGGER.info(item)
-            _LOGGER.info(dev_id)
-            device_registry.async_remove_device(dev_id)
-
-
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # This is called when an entry/configured device is to be removed. The class
-    # needs to unload itself, and remove callbacks. See the classes for further
-    # details
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop("device_list", None)
-        hass.data[DOMAIN].pop("login_response", None)
-        hass.data[DOMAIN].pop("products", None)
+        data = hass.data[DOMAIN].pop(entry.entry_id)
+        client: AidotClient = data["client"]
+        client.cleanup()
 
     return unload_ok
