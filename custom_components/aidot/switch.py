@@ -1,4 +1,4 @@
-"""Support for Aidot lights."""
+"""Support for AiDot switches."""
 
 import asyncio
 import logging
@@ -8,13 +8,7 @@ from aidot.client import AidotClient
 from aidot.device_client import DeviceClient
 from aidot.exceptions import AidotNotLogin
 
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_TEMP_KELVIN,
-    ATTR_RGBW_COLOR,
-    ColorMode,
-    LightEntity,
-)
+from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import (
@@ -32,27 +26,27 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up Light."""
+    """Set up Switch."""
     data = hass.data[DOMAIN][entry.entry_id]
     client: AidotClient = data["client"]
     devices: list[dict[str, Any]] = data["devices"]
 
     async_add_entities(
-        AidotLight(client, device_info)
+        AidotSwitch(client, device_info)
         for device_info in devices
-        if device_info.get("type") == "light"
+        if device_info.get("type") == "switch"
         and "aesKey" in device_info
         and device_info["aesKey"][0] is not None
     )
 
 
-class AidotLight(LightEntity):
-    """Representation of a Aidot Wi-Fi Light."""
+class AidotSwitch(SwitchEntity):
+    """Representation of a Aidot Wi-Fi Switch."""
 
     _attr_has_entity_name = True
 
     def __init__(self, client: AidotClient, device: dict[str, Any]) -> None:
-        """Initialize the light."""
+        """Initialize the switch."""
         super().__init__()
         self.device_client: DeviceClient = client.get_device_client(device)
         self._attr_unique_id = self.device_client.info.dev_id
@@ -68,29 +62,6 @@ class AidotLight(LightEntity):
             name=self.device_client.info.name,
             hw_version=self.device_client.info.hw_version,
         )
-
-        supported_color_modes = set()
-        if self.device_client.info.enable_rgbw:
-            supported_color_modes.add(ColorMode.RGBW)
-
-        if self.device_client.info.enable_cct:
-            supported_color_modes.add(ColorMode.COLOR_TEMP)
-
-        if not supported_color_modes:
-            supported_color_modes.add(ColorMode.ONOFF)
-            if self.device_client.info.enable_dimming:
-                supported_color_modes.add(ColorMode.BRIGHTNESS)
-
-        self._attr_supported_color_modes = supported_color_modes
-
-        if ColorMode.RGBW in supported_color_modes:
-            self._attr_color_mode = ColorMode.RGBW
-        elif ColorMode.COLOR_TEMP in supported_color_modes:
-            self._attr_color_mode = ColorMode.COLOR_TEMP
-        elif ColorMode.BRIGHTNESS in supported_color_modes:
-            self._attr_color_mode = ColorMode.BRIGHTNESS
-        else:
-            self._attr_color_mode = ColorMode.ONOFF
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
@@ -123,47 +94,13 @@ class AidotLight(LightEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True if the light is on."""
+        """Return True if the switch is on."""
         return self.device_client.status.on
 
-    @property
-    def brightness(self) -> int:
-        """Return the brightness of this light between 0..255."""
-        return self.device_client.status.dimming
-
-    @property
-    def min_color_temp_kelvin(self) -> int:
-        """Return the warmest color_temp_kelvin that this light supports."""
-        return self.device_client.info.cct_min
-
-    @property
-    def max_color_temp_kelvin(self) -> int:
-        """Return the coldest color_temp_kelvin that this light supports."""
-        return self.device_client.info.cct_max
-
-    @property
-    def color_temp_kelvin(self) -> int | None:
-        """Return the CT color value in Kelvin."""
-        return self.device_client.status.cct
-
-    @property
-    def rgbw_color(self) -> tuple[int, int, int, int] | None:
-        """Return the rgbw color value [int, int, int, int]."""
-        return self.device_client.status.rgbw
-
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on."""
-        if not self.is_on:
-            await self.device_client.async_turn_on()
-
-        if ATTR_BRIGHTNESS in kwargs:
-            await self.device_client.async_set_brightness(kwargs[ATTR_BRIGHTNESS])
-        if ATTR_COLOR_TEMP_KELVIN in kwargs:
-            await self.device_client.async_set_cct(kwargs[ATTR_COLOR_TEMP_KELVIN])
-        if ATTR_RGBW_COLOR in kwargs:
-            await self.device_client.async_set_rgbw(kwargs[ATTR_RGBW_COLOR])
+        """Turn the switch on."""
+        await self.device_client.async_turn_on()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the light off."""
+        """Turn the switch off."""
         await self.device_client.async_turn_off()
-        await self.lanCtrl.sendDevAttr(self.lanCtrl.getOnOffAction(0))

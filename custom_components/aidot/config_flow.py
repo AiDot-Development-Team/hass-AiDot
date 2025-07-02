@@ -1,36 +1,30 @@
-"""Config flow for Hello World integration."""
-
+"""Config flow for AiDot integration."""
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from aidot.login_control import LoginControl
+from aidot.client import AidotClient
+from aidot.exceptions import AidotAuthFailed, AidotUserOrPassIncorrect
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 
-from homeassistant import config_entries, exceptions
+from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     CLOUD_SERVERS,
     CONF_CHOOSE_HOUSE,
+    CONF_MANUAL_IPS,
     CONF_PASSWORD,
     CONF_SERVER_COUNTRY,
+    CONF_USE_MANUAL_IPS,
     CONF_USERNAME,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
-async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
-    """Validate the user input allows us to connect.
-
-    Data has the keys from DATA_SCHEMA with values provided by the user.
-    """
-    if len(data["host"]) < 3:
-        raise InvalidHost
-    return {"title": data["host"]}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -41,55 +35,47 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self.__login_control = LoginControl()
-        self.login_response: dict[Any, Any] = {}
-        self.accessToken = ""
+        self.client: AidotClient | None = None
+        self.login_info: dict[Any, Any] = {}
         self.house_list: list[Any] = []
         self.device_list: list[Any] = []
         self.product_list: list[Any] = []
         self.selected_house: dict[Any, Any] = {}
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors = {}
         if user_input is not None:
+            session = async_get_clientsession(self.hass)
+            self.client = AidotClient(
+                session,
+                user_input[CONF_SERVER_COUNTRY],
+                user_input[CONF_USERNAME],
+                user_input[CONF_PASSWORD],
+            )
             try:
-                # get ContryCode
-                selected_contry_name = user_input[CONF_SERVER_COUNTRY]
-                selected_contry_obj = {}
-                for item in CLOUD_SERVERS:
-                    if item["name"] == selected_contry_name:
-                        selected_contry_obj = item
-                        break
-                self.__login_control.change_country_code(selected_contry_obj)
-
-                self.login_response = await self.__login_control.async_post_login(
-                    self.hass,
-                    user_input[CONF_USERNAME],
-                    user_input[CONF_PASSWORD],
-                )
-                self.accessToken = self.login_response["accessToken"]
+                self.login_info = await self.client.async_post_login()
+                _LOGGER.debug(f"Login successful, login_info: {self.login_info}")
 
                 # get houses
-                self.house_list = await self.__login_control.async_get_houses(
-                    self.hass, self.accessToken
-                )
+                self.house_list = await self.client.async_get_houses()
+                _LOGGER.debug(f"Got houses: {self.house_list}")
 
                 return await self.async_step_choose_house()
 
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except InvalidHost:
-                errors["host"] = "cannot_connect"
+            except AidotUserOrPassIncorrect:
+                errors["base"] = "invalid_auth"
+            except AidotAuthFailed:
+                errors["base"] = "invalid_auth"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
-                errors["base"] = "login_failed"
+                errors["base"] = "unknown"
 
         if user_input is None:
             user_input = {}
 
         counties_name = [item["name"] for item in CLOUD_SERVERS]
-        DATA_SCHEMA = vol.Schema(
+        data_schema = vol.Schema(
             {
                 vol.Required(
                     CONF_SERVER_COUNTRY,
@@ -105,48 +91,56 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            step_id="user", data_schema=data_schema, errors=errors
         )
 
-    async def async_step_choose_house(self, user_input=None):
+    async def async_step_choose_house(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Please select a room."""
-        errors = {}
-        if user_input is None:
-            user_input = {}
-
-        if user_input.get(CONF_CHOOSE_HOUSE) is not None:
+        errors: dict[str, str] = {}
+        if user_input is not None and self.client:
             # get all house name
             for item in self.house_list:
                 if item["name"] == user_input.get(CONF_CHOOSE_HOUSE):
                     self.selected_house = item
 
             # get device_list
-            self.device_list = await self.__login_control.async_get_devices(
-                self.hass, self.accessToken, self.selected_house["id"]
+            _LOGGER.debug(f"Selected house: {self.selected_house}")
+            self.device_list = await self.client.async_get_devices(
+                self.selected_house["id"]
             )
+            _LOGGER.debug(f"Got devices: {self.device_list}")
 
             # get product_list
-            productIds = ",".join([item["productId"] for item in self.device_list])
-            self.product_list = await self.__login_control.async_get_products(
-                self.hass, self.accessToken, productIds
-            )
+            if self.device_list:
+                product_ids = ",".join(
+                    [item["productId"] for item in self.device_list]
+                )
+                self.product_list = await self.client.async_get_products(product_ids)
+                _LOGGER.debug(f"Got products: {self.product_list}")
 
-            title = self.login_response["username"] + " " + self.selected_house["name"]
-            return self.async_create_entry(
-                title=title,
-                data={
-                    "login_response": self.login_response,
-                    "selected_house": self.selected_house,
-                    "device_list": self.device_list,
-                    "product_list": self.product_list,
-                },
+            self.device_list = await self.client.async_get_devices(
+                self.selected_house["id"]
             )
+            _LOGGER.debug(f"Got devices: {self.device_list}")
+            product_ids = [d["productId"] for d in self.device_list]
+            if product_ids:
+                _LOGGER.debug(
+                    f"Getting product info for product ids: {product_ids}"
+                )
+                self.product_list = await self.client.async_get_products(product_ids)
+                _LOGGER.debug(f"Got products: {self.product_list}")
+
+            return await self.async_step_discovery_method()
+
+        if user_input is None:
+            user_input = {}
 
         # get default house
         default_house = {}
         for item in self.house_list:
             if item["isDefault"]:
                 default_house = item
+                break
 
         # get all house name
         house_name_list = [item["name"] for item in self.house_list]
@@ -154,7 +148,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(
                     CONF_CHOOSE_HOUSE,
-                    default=user_input.get(CONF_CHOOSE_HOUSE, default_house["name"]),
+                    default=user_input.get(
+                        CONF_CHOOSE_HOUSE, default_house.get("name")
+                    ),
                 ): vol.In(house_name_list)
             }
         )
@@ -164,10 +160,48 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_discovery_method(self, user_input=None):
+        """Handle the discovery method step."""
+        if user_input is not None:
+            if user_input[CONF_USE_MANUAL_IPS]:
+                return await self.async_step_manual_ips()
 
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
+            title = self.login_info["username"] + " " + self.selected_house["name"]
+            return self.async_create_entry(
+                title=title,
+                data={
+                    "login_info": self.login_info,
+                    "selected_house": self.selected_house,
+                },
+            )
 
+        schema = vol.Schema({vol.Required(CONF_USE_MANUAL_IPS, default=False): bool})
+        return self.async_show_form(step_id="discovery_method", data_schema=schema)
 
-class InvalidHost(exceptions.HomeAssistantError):
-    """Error to indicate there is an invalid hostname."""
+    async def async_step_manual_ips(self, user_input=None):
+        """Handle the manual IP configuration step."""
+        if user_input is not None:
+            # Filter out empty strings
+            manual_ips = {k: v for k, v in user_input.items() if v}
+            title = self.login_info["username"] + " " + self.selected_house["name"]
+            return self.async_create_entry(
+                title=title,
+                data={
+                    "login_info": self.login_info,
+                    "selected_house": self.selected_house,
+                    CONF_MANUAL_IPS: manual_ips,
+                },
+            )
+
+        schema_fields = {}
+        device_names = []
+        for device in self.device_list:
+            device_names.append(device.get("name", device["id"]))
+            # Use Optional so the field can be left blank
+            schema_fields[vol.Optional(device["id"], default="")] = str
+
+        return self.async_show_form(
+            step_id="manual_ips",
+            data_schema=vol.Schema(schema_fields),
+            description_placeholders={"devices": ", ".join(device_names)},
+        )
