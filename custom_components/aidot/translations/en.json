@@ -21,10 +21,22 @@
             },
             "choose_house": {
                 "data": {
-                    "choose_house": "Choose house"
+                    "choose_house": "House"
                 },
-                "description": "Please select a room.",
+                "description": "Please select the house to add.",
                 "title": "Aidot"
+            },
+            "discovery_method": {
+                "title": "Discovery Method",
+                "description": "Choose how to discover devices on your network. Automatic discovery is recommended unless you have network issues.",
+                "data": {
+                    "use_manual_ips": "Configure device IPs manually"
+                }
+            },
+            "manual_ips": {
+                "title": "Manual IP Configuration",
+                "description": "Enter the static IP address for your devices: {devices}. Leave a field blank to use automatic discovery for that specific device.",
+                "data": {}
             }
         }
     }
