@@ -35,6 +35,10 @@ class PatchedDeviceClient(DeviceClient):
 
 class PatchedAidotClient(AidotClient):
     """A wrapper for the AidotClient that uses our patched device client."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Fix for 'AttributeError: 'PatchedAidotClient' object has no attribute '_token_fresh_cb'.'
+        self._token_fresh_cb = None
 
     def get_device_client(self, device: dict[str, Any]) -> PatchedDeviceClient:
         """Get or create a patched device client."""
@@ -44,13 +48,9 @@ class PatchedAidotClient(AidotClient):
             device_client = PatchedDeviceClient(device, self.login_info)
             self._device_clients[device_id] = device_client
             asyncio.get_running_loop().create_task(device_client.ping_task())
-
-        # This part is for discovery, which we want to keep.
         if self._discover is not None:
             ip = self._discover.discovered_device.get(device_id)
             if ip is not None:
-                # update_ip_address on PatchedDeviceClient is called here.
-                # manual is False by default, which is correct for discovery.
                 device_client.update_ip_address(ip)
 
         return device_client
