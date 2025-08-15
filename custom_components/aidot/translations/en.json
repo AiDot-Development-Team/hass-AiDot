@@ -1,30 +1,23 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Device is already configured"
+            "already_configured": "The account in the current region has already been configured"
         },
         "error": {
-            "cannot_connect": "Failed to connect",
-            "invalid_auth": "Invalid authentication",
-            "login_failed": "Unable to process Sign, please check the account and password",
-            "unknown": "Unexpected error"
+            "invalid_auth": "Authentication failed, please ensure that the network is functioning properly and the account password is correct."
         },
         "step": {
             "user": {
                 "data": {
-                    "server_country": "Country",
-                    "server_username": "Email address",
-                    "server_password": "Password"
+                    "country": "Country",
+                    "password": "Password",
+                    "username": "Username"
                 },
-                "description": "Log in to the Aidot cloud, see https://www.aidot.com#country-servers for the cloud server to use.",
-                "title": "Aidot"
-            },
-            "choose_house": {
-                "data": {
-                    "choose_house": "Choose house"
-                },
-                "description": "Please select a room.",
-                "title": "Aidot"
+                "data_description": {
+                    "country": "The country selected by Aidot app when logging in",
+                    "password": "Password for logging in through Aidot app",
+                    "username": "Account logged in through Aidot app"
+                }
             }
         }
     }
