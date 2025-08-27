@@ -73,8 +73,10 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         """Initialize the light."""
         super().__init__(coordinator)
         self._attr_unique_id = coordinator.device_client.info.dev_id
-        self._attr_max_color_temp_kelvin = coordinator.device_client.info.cct_max
-        self._attr_min_color_temp_kelvin = coordinator.device_client.info.cct_min
+        if hasattr(coordinator.device_client.info, "cct_max"):
+            self._attr_max_color_temp_kelvin = coordinator.device_client.info.cct_max
+        if hasattr(coordinator.device_client.info, "cct_min"):
+            self._attr_min_color_temp_kelvin = coordinator.device_client.info.cct_min
 
         model_id = coordinator.device_client.info.model_id
         manufacturer = model_id.split(".")[0]
@@ -115,6 +117,8 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
+        self.coordinator.data.on = True
+        self._attr_is_on = True
         if ATTR_BRIGHTNESS in kwargs:
             await self.coordinator.device_client.async_set_brightness(
                 kwargs.get(ATTR_BRIGHTNESS, 255)
@@ -134,4 +138,6 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
+        self.coordinator.data.on = False
+        self._attr_is_on = False
         await self.coordinator.device_client.async_turn_off()
