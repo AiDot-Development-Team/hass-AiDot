@@ -6,6 +6,6 @@
   "documentation": "https://www.home-assistant.io/integrations/aidot",
   "iot_class": "local_polling",
   "quality_scale": "bronze",
-  "requirements": ["python-aidot==0.3.42"],
-  "version": "1.0.6"
+  "requirements": ["python-aidot==0.3.43"],
+  "version": "1.0.7"
 }
