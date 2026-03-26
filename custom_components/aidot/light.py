@@ -34,7 +34,7 @@ async def async_setup_entry(
 
     @callback
     def add_entities() -> None:
-        """Add sensor entities."""
+        """Add light entities."""
         nonlocal lists_added
         new_lists = {
             device_coordinator.device_client.device_id
@@ -101,11 +101,6 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
             self._attr_color_mode = ColorMode.BRIGHTNESS
             self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
         self._update_status()
-        coordinator.device_client.set_status_fresh_cb(self._device_status_callback)
-
-    def _device_status_callback(self, status) -> None:
-        self._update_status()
-        self.async_write_ha_state()
 
     def _update_status(self) -> None:
         self._attr_available = self.coordinator.data.online

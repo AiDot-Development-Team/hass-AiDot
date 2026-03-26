@@ -46,27 +46,21 @@ class AidotDeviceUpdateCoordinator(DataUpdateCoordinator[DeviceStatusData]):
             _LOGGER,
             config_entry=config_entry,
             name=DOMAIN,
-            update_interval=timedelta(seconds=30),
+            update_interval=None,
         )
         self.device_client = device_client
 
     async def _async_setup(self) -> None:
         """Set up the coordinator."""
-        try:
-            await self.device_client.async_login()
-        except AidotUserOrPassIncorrect as error:
-            raise ConfigEntryError from error
+        self.device_client.on_status_update = self._handle_status_update
 
+    def _handle_status_update(self, status: DeviceStatusData):
+        """status callback"""
+        self.async_set_updated_data(status)
     async def _async_update_data(self) -> DeviceStatusData:
-        """Update data async."""
-        try:
-            if self.device_client.connect_and_login is False:
-                await self.device_client.async_login()
-            status = await self.device_client.read_status()
-        except AidotNotLogin:
-            status = self.device_client.status
-            status.online = False
-        return status
+        """Return current status."""
+        return self.device_client.status
+
 
 
 class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
@@ -91,7 +85,6 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
             session=async_get_clientsession(hass),
             token=config_entry.data[CONF_LOGIN_INFO],
         )
-        self.client.start_discover()
         self.client.set_token_fresh_cb(self.token_fresh_cb)
         self.device_coordinators: dict[str, AidotDeviceUpdateCoordinator] = {}
         self.previous_lists: set[str] = set()
