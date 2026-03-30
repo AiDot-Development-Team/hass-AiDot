@@ -134,9 +134,9 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
                 await device_coordinator.async_config_entry_first_refresh()
                 self.device_coordinators[dev_id] = device_coordinator
 
-    def cleanup(self) -> None:
+    async def async_cleanup(self) -> None:
         """Perform cleanup actions."""
-        self.client.cleanup()
+        await self.client.async_cleanup()
 
     def token_fresh_cb(self) -> None:
         """Update token."""

@@ -109,6 +109,10 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         self._attr_color_temp_kelvin = self.coordinator.data.cct
         self._attr_rgbw_color = self.coordinator.data.rgbw
 
+    @property
+    def available(self) -> bool:
+        return self.coordinator.data.online
+        
     @callback
     def _handle_coordinator_update(self) -> None:
         """Update."""
