@@ -94,7 +94,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         try:
             await self.async_auto_login()
         except AidotUserOrPassIncorrect as error:
-            raise ConfigEntryError from error
+            raise ConfigEntryAuthFailed from error
 
     async def _async_update_data(self) -> None:
         """Update data async."""
