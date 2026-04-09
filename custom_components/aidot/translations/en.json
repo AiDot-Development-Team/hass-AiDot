@@ -9,12 +9,12 @@
         "step": {
             "user": {
                 "data": {
-                    "country": "Country",
+                    "country_code": "Country",
                     "password": "Password",
                     "username": "Username"
                 },
                 "data_description": {
-                    "country": "The country selected by Aidot app when logging in",
+                    "country_code": "The country selected by Aidot app when logging in",
                     "password": "Password for logging in through Aidot app",
                     "username": "Account logged in through Aidot app"
                 }

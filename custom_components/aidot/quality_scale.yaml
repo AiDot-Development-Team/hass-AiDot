@@ -30,7 +30,7 @@ rules:
   config-entry-unloading: done
   docs-configuration-parameters:
     status: exempt
-    comment: This integration has not option flow.
+    comment: This integration has no option flow.
   docs-installation-parameters: done
   entity-unavailable: done
   integration-owner: done
@@ -40,7 +40,7 @@ rules:
   test-coverage: todo
 
   # Gold
-  devices: todo
+  devices: done
   diagnostics: todo
   discovery-update-info: todo
   discovery: todo

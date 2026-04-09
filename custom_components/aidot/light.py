@@ -10,7 +10,6 @@ from homeassistant.components.light import (
     LightEntity,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er  # 导入实体注册表
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
     DeviceInfo,
@@ -30,35 +29,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Light."""
     coordinator = entry.runtime_data
-    lists_added: set[str] = set()
-
-    @callback
-    def add_entities() -> None:
-        """Add light entities."""
-        nonlocal lists_added
-        new_lists = {
-            device_coordinator.device_client.device_id
-            for device_coordinator in coordinator.device_coordinators.values()
-        }
-
-        if new_lists - lists_added:
-            async_add_entities(
-                AidotLight(hass, coordinator.device_coordinators[device_id])
-                for device_id in new_lists
-            )
-            lists_added |= new_lists
-        elif lists_added - new_lists:
-            removed_device_ids = lists_added - new_lists
-            for device_id in removed_device_ids:
-                entity_registry = er.async_get(hass)
-                if entity := entity_registry.async_get_entity_id(
-                    "light", DOMAIN, device_id
-                ):
-                    entity_registry.async_remove(entity)
-            lists_added = lists_added - removed_device_ids
-
-    coordinator.async_add_listener(add_entities)
-    add_entities()
+    async_add_entities(
+        AidotLight(device_coordinator)
+        for device_coordinator in coordinator.device_coordinators.values()
+    )
 
 
 class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
@@ -67,9 +41,7 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
     _attr_has_entity_name = True
     _attr_name = None
 
-    def __init__(
-        self, hass: HomeAssistant, coordinator: AidotDeviceUpdateCoordinator
-    ) -> None:
+    def __init__(self, coordinator: AidotDeviceUpdateCoordinator) -> None:
         """Initialize the light."""
         super().__init__(coordinator)
         self._attr_unique_id = coordinator.device_client.info.dev_id
@@ -103,6 +75,7 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         self._update_status()
 
     def _update_status(self) -> None:
+        """Update light status from coordinator data."""
         self._attr_available = self.coordinator.data.online
         self._attr_is_on = self.coordinator.data.on
         self._attr_brightness = self.coordinator.data.dimming
@@ -111,8 +84,9 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
 
     @property
     def available(self) -> bool:
+        """Return if entity is available."""
         return self.coordinator.data.online
-        
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Update."""
@@ -120,28 +94,29 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on."""
+        """Fix brightness state synchronization by updating the coordinator's `dimming` field."""
+        if ATTR_BRIGHTNESS in kwargs:
+            brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+            await self.coordinator.device_client.async_set_brightness(brightness)
+            self.coordinator.data.dimming = brightness
+        elif ATTR_COLOR_TEMP_KELVIN in kwargs:
+            color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
+            await self.coordinator.device_client.async_set_cct(color_temp_kelvin)
+            self.coordinator.data.cct = color_temp_kelvin
+            self._attr_color_mode = ColorMode.COLOR_TEMP
+        elif ATTR_RGBW_COLOR in kwargs:
+            rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
+            await self.coordinator.device_client.async_set_rgbw(rgbw_color)
+            self.coordinator.data.rgbw = rgbw_color
+            self._attr_color_mode = ColorMode.RGBW
+        else:
+            await self.coordinator.device_client.async_turn_on()
+
         self.coordinator.data.on = True
         self._attr_is_on = True
-        if ATTR_BRIGHTNESS in kwargs:
-            await self.coordinator.device_client.async_set_brightness(
-                kwargs.get(ATTR_BRIGHTNESS, 255)
-            )
-        if ATTR_COLOR_TEMP_KELVIN in kwargs:
-            self._attr_color_mode = ColorMode.COLOR_TEMP
-            await self.coordinator.device_client.async_set_cct(
-                kwargs.get(ATTR_COLOR_TEMP_KELVIN)
-            )
-        if ATTR_RGBW_COLOR in kwargs:
-            self._attr_color_mode = ColorMode.RGBW
-            await self.coordinator.device_client.async_set_rgbw(
-                kwargs.get(ATTR_RGBW_COLOR)
-            )
-        if not kwargs:
-            await self.coordinator.device_client.async_turn_on()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
+        await self.coordinator.device_client.async_turn_off()
         self.coordinator.data.on = False
         self._attr_is_on = False
-        await self.coordinator.device_client.async_turn_off()

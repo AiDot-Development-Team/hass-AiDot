@@ -13,12 +13,11 @@ from aidot.const import (
     CONF_TYPE,
 )
 from aidot.device_client import DeviceClient, DeviceStatusData
-from aidot.exceptions import AidotAuthFailed, AidotNotLogin, AidotUserOrPassIncorrect
+from aidot.exceptions import AidotAuthFailed, AidotUserOrPassIncorrect
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -54,13 +53,13 @@ class AidotDeviceUpdateCoordinator(DataUpdateCoordinator[DeviceStatusData]):
         """Set up the coordinator."""
         self.device_client.on_status_update = self._handle_status_update
 
-    def _handle_status_update(self, status: DeviceStatusData):
-        """status callback"""
+    def _handle_status_update(self, status: DeviceStatusData) -> None:
+        """Handle status callback."""
         self.async_set_updated_data(status)
+
     async def _async_update_data(self) -> DeviceStatusData:
         """Return current status."""
         return self.device_client.status
-
 
 
 class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
@@ -87,7 +86,6 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         )
         self.client.set_token_fresh_cb(self.token_fresh_cb)
         self.device_coordinators: dict[str, AidotDeviceUpdateCoordinator] = {}
-        self.previous_lists: set[str] = set()
 
     async def _async_setup(self) -> None:
         """Set up the coordinator."""
@@ -103,29 +101,23 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         except AidotAuthFailed as error:
             self.token_fresh_cb()
             raise ConfigEntryError from error
-        filter_device_list = [
-            device
-            for device in data.get(CONF_DEVICE_LIST)
+        current_devices = {
+            device[CONF_ID]: device
+            for device in data[CONF_DEVICE_LIST]
             if (
-                device[CONF_TYPE] == Platform.LIGHT
+                device[CONF_TYPE] == "light"
                 and CONF_AES_KEY in device
                 and device[CONF_AES_KEY][0] is not None
             )
-        ]
+        }
 
-        delete_lists = self.previous_lists - (
-            current_lists := {device[CONF_ID] for device in filter_device_list}
-        )
-
-        for dev_id in delete_lists:
-            if dev_id in self.device_coordinators:
-                del self.device_coordinators[dev_id]
-        if delete_lists:
+        removed_ids = set(self.device_coordinators) - set(current_devices)
+        for dev_id in removed_ids:
+            del self.device_coordinators[dev_id]
+        if removed_ids:
             self._purge_deleted_lists()
-        self.previous_lists = current_lists
 
-        for device in filter_device_list:
-            dev_id = device.get(CONF_ID)
+        for dev_id, device in current_devices.items():
             if dev_id not in self.device_coordinators:
                 device_client = self.client.get_device_client(device)
                 device_coordinator = AidotDeviceUpdateCoordinator(
@@ -147,10 +139,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
     async def async_auto_login(self) -> None:
         """Async auto login."""
         if self.client.login_info.get(CONF_ACCESS_TOKEN) is None:
-            try:
-                await self.client.async_post_login()
-            except AidotUserOrPassIncorrect as error:
-                raise AidotUserOrPassIncorrect from error
+            await self.client.async_post_login()
 
     def _purge_deleted_lists(self) -> None:
         """Purge device entries of deleted lists."""
