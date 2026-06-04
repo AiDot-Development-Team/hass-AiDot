@@ -89,25 +89,33 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on, applying brightness, color temperature, RGBW, or plain on."""
-        if ATTR_BRIGHTNESS in kwargs:
-            brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
-            await self.coordinator.device_client.async_set_brightness(brightness)
-            self.coordinator.data.dimming = brightness
-            self._attr_brightness = brightness
-        elif ATTR_COLOR_TEMP_KELVIN in kwargs:
-            color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
-            await self.coordinator.device_client.async_set_cct(color_temp_kelvin)
-            self.coordinator.data.cct = color_temp_kelvin
-            self._attr_color_temp_kelvin = color_temp_kelvin
-            self._attr_color_mode = ColorMode.COLOR_TEMP
-        elif ATTR_RGBW_COLOR in kwargs:
+        """Turn the light on, applying all supplied attributes."""
+        handled = False
+
+        if ATTR_RGBW_COLOR in kwargs:
             rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
             await self.coordinator.device_client.async_set_rgbw(rgbw_color)
             self.coordinator.data.rgbw = rgbw_color
             self._attr_rgbw_color = rgbw_color
             self._attr_color_mode = ColorMode.RGBW
-        else:
+            handled = True
+
+        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+            color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
+            await self.coordinator.device_client.async_set_cct(color_temp_kelvin)
+            self.coordinator.data.cct = color_temp_kelvin
+            self._attr_color_temp_kelvin = color_temp_kelvin
+            self._attr_color_mode = ColorMode.COLOR_TEMP
+            handled = True
+
+        if ATTR_BRIGHTNESS in kwargs:
+            brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+            await self.coordinator.device_client.async_set_brightness(brightness)
+            self.coordinator.data.dimming = brightness
+            self._attr_brightness = brightness
+            handled = True
+
+        if not handled:
             await self.coordinator.device_client.async_turn_on()
 
         self.coordinator.data.on = True
