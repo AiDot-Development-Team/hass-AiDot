@@ -8,12 +8,18 @@ from aidot.exceptions import AidotUserOrPassIncorrect
 from aiohttp import ClientError
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_COUNTRY_CODE, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import CONF_SERVE_PORT_BASE, DEFAULT_SERVE_PORT_BASE, DOMAIN
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -40,6 +46,12 @@ REAUTH_SCHEMA = vol.Schema(
 class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle aidot config flow."""
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the options flow."""
+        return AidotOptionsFlow()
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -56,7 +68,7 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 login_info = await client.async_post_login()
             except AidotUserOrPassIncorrect:
                 errors["base"] = "invalid_auth"
-            except TimeoutError, ClientError:
+            except (TimeoutError, ClientError):
                 errors["base"] = "cannot_connect"
 
             if not errors:
@@ -97,7 +109,7 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 login_info = await client.async_post_login()
             except AidotUserOrPassIncorrect:
                 errors["base"] = "invalid_auth"
-            except TimeoutError, ClientError:
+            except (TimeoutError, ClientError):
                 errors["base"] = "cannot_connect"
 
             if not errors:
@@ -112,4 +124,29 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 "username": reauth_entry.data.get(CONF_USERNAME, "")
             },
             errors=errors,
+        )
+
+
+class AidotOptionsFlow(OptionsFlow):
+    """Handle aidot options."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current = self.config_entry.options.get(
+            CONF_SERVE_PORT_BASE, DEFAULT_SERVE_PORT_BASE
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SERVE_PORT_BASE, default=current
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1024, max=65100)),
+                }
+            ),
         )

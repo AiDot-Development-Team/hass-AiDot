@@ -1,9 +1,13 @@
 {
   "domain": "aidot",
   "name": "AiDot",
+  "after_dependencies": [
+    "go2rtc"
+  ],
   "codeowners": [
     "@s1eedz",
-    "@HongBryan"
+    "@HongBryan",
+    "@cbrightly"
   ],
   "config_flow": true,
   "dhcp": [
@@ -13,10 +17,10 @@
   ],
   "documentation": "https://www.home-assistant.io/integrations/aidot",
   "integration_type": "hub",
-  "iot_class": "local_polling",
+  "iot_class": "cloud_polling",
   "quality_scale": "bronze",
   "requirements": [
-    "python-aidot==0.3.54b4"
+    "python-aidot[webrtc] @ git+https://github.com/cbrightly/python-AiDot.git@edfb3d943d72f82fb1cedbcad4aa4a0e81f88ddb"
   ],
-  "version": "1.1.4-beta.4"
+  "version": "2.0.0"
 }

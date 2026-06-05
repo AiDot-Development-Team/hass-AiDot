@@ -1,0 +1,65 @@
+talk:
+  name: Talk (two-way audio)
+  description: >-
+    Play an audio clip through an Aidot camera's speaker (push-to-talk / announce).
+  target:
+    entity:
+      integration: aidot
+      domain: camera
+  fields:
+    media:
+      name: Media
+      description: A media-source id, http(s) URL, or local file path to an audio file.
+      required: true
+      example: "media-source://media_source/local/doorbell.mp3"
+      selector:
+        text:
+    max_seconds:
+      name: Max seconds
+      description: Maximum talk duration (safety cap).
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 300
+          unit_of_measurement: seconds
+
+ptz:
+  name: PTZ move
+  description: >-
+    Pan / tilt / zoom an Aidot PTZ camera (model A001064). The camera must be
+    streaming - open the live view first. Use direction "stop" to halt motion.
+  target:
+    entity:
+      integration: aidot
+      domain: camera
+  fields:
+    direction:
+      name: Direction
+      description: Movement direction (or zoom / stop).
+      required: true
+      example: "left"
+      selector:
+        select:
+          options:
+            - up
+            - down
+            - left
+            - right
+            - left_up
+            - left_down
+            - right_up
+            - right_down
+            - zoom_in
+            - zoom_out
+            - stop
+    speed:
+      name: Speed
+      description: Movement speed (1 = slow, 8 = fast).
+      required: false
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 8

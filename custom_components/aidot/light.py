@@ -6,6 +6,8 @@ from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
+    DEFAULT_MAX_KELVIN,
+    DEFAULT_MIN_KELVIN,
     ColorMode,
     LightEntity,
 )
@@ -25,30 +27,44 @@ async def async_setup_entry(
 ) -> None:
     """Set up Light."""
     coordinator = entry.runtime_data
-    async_add_entities(
-        AidotLight(device_coordinator)
-        for device_coordinator in coordinator.device_coordinators.values()
-    )
+    registered: set[str] = set()
+
+    def _add_new_lights() -> None:
+        new = [
+            AidotLight(c)
+            for dev_id, c in coordinator.device_coordinators.items()
+            if dev_id not in registered
+        ]
+        if new:
+            registered.update(c.unique_id for c in new)
+            async_add_entities(new)
+
+    _add_new_lights()
+    entry.async_on_unload(coordinator.async_add_listener(lambda: _add_new_lights()))
 
 
 class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
-    """Representation of a Aidot Wi-Fi Light."""
+    """Representation of an Aidot Wi-Fi Light."""
 
     _attr_has_entity_name = True
     _attr_name = None
 
     def __init__(self, coordinator: AidotDeviceUpdateCoordinator) -> None:
-        """Initialize the light."""
         super().__init__(coordinator)
         self._attr_unique_id = coordinator.device_client.info.dev_id
-        if hasattr(coordinator.device_client.info, "cct_max"):
-            self._attr_max_color_temp_kelvin = coordinator.device_client.info.cct_max
-        if hasattr(coordinator.device_client.info, "cct_min"):
-            self._attr_min_color_temp_kelvin = coordinator.device_client.info.cct_min
+        # Always set kelvin bounds (with HA defaults) so color-temp lights never
+        # fall back to the deprecated mireds properties - RGBW lights enable
+        # COLOR_TEMP without a CCT service that provides cct_min/cct_max.
+        self._attr_max_color_temp_kelvin = (
+            getattr(coordinator.device_client.info, "cct_max", None) or DEFAULT_MAX_KELVIN
+        )
+        self._attr_min_color_temp_kelvin = (
+            getattr(coordinator.device_client.info, "cct_min", None) or DEFAULT_MIN_KELVIN
+        )
 
         model_id = coordinator.device_client.info.model_id
         manufacturer = model_id.split(".")[0]
-        model = model_id[len(manufacturer) + 1 :]
+        model = model_id[len(manufacturer) + 1:]
         mac = coordinator.device_client.info.mac
 
         self._attr_device_info = DeviceInfo(
@@ -71,7 +87,8 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         self._update_status()
 
     def _update_status(self) -> None:
-        """Update light status from coordinator data."""
+        if self.coordinator.data is None:
+            return
         self._attr_is_on = self.coordinator.data.on
         self._attr_brightness = self.coordinator.data.dimming
         self._attr_color_temp_kelvin = self.coordinator.data.cct
@@ -79,30 +96,31 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
 
     @property
     def available(self) -> bool:
-        """Return if entity is available."""
-        return super().available and self.coordinator.data.online
+        return (
+            super().available
+            and self.coordinator.data is not None
+            and self.coordinator.data.online
+        )
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Update."""
         self._update_status()
         super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on, applying brightness, color temperature, RGBW, or plain on."""
         if ATTR_BRIGHTNESS in kwargs:
-            brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+            brightness = kwargs[ATTR_BRIGHTNESS]
             await self.coordinator.device_client.async_set_brightness(brightness)
             self.coordinator.data.dimming = brightness
             self._attr_brightness = brightness
         elif ATTR_COLOR_TEMP_KELVIN in kwargs:
-            color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
+            color_temp_kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
             await self.coordinator.device_client.async_set_cct(color_temp_kelvin)
             self.coordinator.data.cct = color_temp_kelvin
             self._attr_color_temp_kelvin = color_temp_kelvin
             self._attr_color_mode = ColorMode.COLOR_TEMP
         elif ATTR_RGBW_COLOR in kwargs:
-            rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
+            rgbw_color = kwargs[ATTR_RGBW_COLOR]
             await self.coordinator.device_client.async_set_rgbw(rgbw_color)
             self.coordinator.data.rgbw = rgbw_color
             self._attr_rgbw_color = rgbw_color
@@ -115,7 +133,6 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the light off."""
         await self.coordinator.device_client.async_turn_off()
         self.coordinator.data.on = False
         self._attr_is_on = False

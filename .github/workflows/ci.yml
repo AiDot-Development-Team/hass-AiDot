@@ -1,0 +1,42 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Runs inside an Alpine (musl) container - the same runtime Home Assistant
+  # OS / Container uses - so checks run exactly where the integration lives.
+  # Alpine container jobs REQUIRE node24-runtime actions (checkout@v5+): GitHub's
+  # node20 binary is glibc-only and cannot execute inside a musl container.
+  validate:
+    name: Validate (Alpine / musl - HA runtime)
+    runs-on: ubuntu-latest
+    container: python:3.13-alpine
+    steps:
+      - uses: actions/checkout@v5        # node24 (mandatory in a musl container)
+      - run: apk add --no-cache git
+      - run: pip install flake8
+      # Fail only on genuine breakage: syntax errors + undefined names.
+      - name: Lint for real errors
+        run: flake8 custom_components --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Validate JSON (manifest, strings, translations)
+        run: |
+          python - <<'PY'
+          import json, glob
+          for f in sorted(set(
+              glob.glob("custom_components/aidot/*.json")
+              + glob.glob("custom_components/aidot/translations/*.json")
+          )):
+              json.load(open(f))
+              print("ok", f)
+          m = json.load(open("custom_components/aidot/manifest.json"))
+          for k in ("domain", "name", "codeowners", "requirements", "version"):
+              assert k in m, f"manifest missing required key: {k}"
+          print("manifest required keys present")
+          PY

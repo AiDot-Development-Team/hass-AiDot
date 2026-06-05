@@ -34,5 +34,103 @@
                 "description": "Please re-enter your credentials to re-authenticate."
             }
         }
+    },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AiDot options",
+        "data": {
+          "serve_port_base": "Camera stream port base"
+        },
+        "data_description": {
+          "serve_port_base": "Base local port for serving SDES camera streams to HA/go2rtc (each camera uses base..base+399). Change only if it conflicts with another service."
+        }
+      }
     }
+  },
+  "entity": {
+    "button": {
+      "ptz_up": { "name": "PTZ up" },
+      "ptz_down": { "name": "PTZ down" },
+      "ptz_left": { "name": "PTZ left" },
+      "ptz_right": { "name": "PTZ right" },
+      "ptz_stop": { "name": "PTZ stop" },
+      "ptz_zoom_in": { "name": "PTZ zoom in" },
+      "ptz_zoom_out": { "name": "PTZ zoom out" }
+    },
+    "number": {
+      "motion_sensitivity": {
+        "name": "Motion sensitivity"
+      },
+      "speaker_volume": {
+        "name": "Speaker volume"
+      }
+    },
+    "switch": {
+      "motion_detection": {
+        "name": "Motion detection"
+      },
+      "status_led": {
+        "name": "Status LED"
+      },
+      "microphone": {
+        "name": "Microphone"
+      },
+      "floodlight": {
+        "name": "Floodlight"
+      },
+      "ptz_tracking": {
+        "name": "Auto-tracking"
+      },
+      "ir_light": {
+        "name": "IR light"
+      },
+      "siren": {
+        "name": "Siren"
+      }
+    },
+    "select": {
+      "night_vision": {
+        "name": "Night vision",
+        "state": {
+          "auto": "Auto",
+          "on": "On",
+          "off": "Off"
+        }
+      },
+      "resolution": {
+        "name": "Resolution",
+        "state": {
+          "hd": "HD",
+          "sd": "SD"
+        }
+      }
+    },
+    "event": {
+      "motion": {
+        "name": "Motion",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "motion": "Motion",
+              "person": "Person"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "sd_card_status": {
+        "name": "SD card status"
+      }
+    },
+    "binary_sensor": {
+      "occupancy": {
+        "name": "Occupancy"
+      }
+    }
+  }
 }
