@@ -1,6 +1,8 @@
 """Support for Aidot lights."""
 
-from typing import Any
+from typing import Any, override
+
+from aidot.const import CONF_CCT, CONF_DIMMING, CONF_RGBW
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -78,42 +80,46 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
         self._attr_rgbw_color = self.coordinator.data.rgbw
 
     @property
+    @override
     def available(self) -> bool:
         """Return if entity is available."""
         return super().available and self.coordinator.data.online
 
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         """Update."""
         self._update_status()
         super()._handle_coordinator_update()
 
+    @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on, applying brightness, color temperature, RGBW, or plain on."""
+        attrs: dict[str, Any] = {}
         if ATTR_BRIGHTNESS in kwargs:
-            brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
-            await self.coordinator.device_client.async_set_brightness(brightness)
+            brightness = kwargs[ATTR_BRIGHTNESS]
             self.coordinator.data.dimming = brightness
             self._attr_brightness = brightness
-        elif ATTR_COLOR_TEMP_KELVIN in kwargs:
-            color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
-            await self.coordinator.device_client.async_set_cct(color_temp_kelvin)
+            attrs[CONF_DIMMING] = brightness
+        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+            color_temp_kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
             self.coordinator.data.cct = color_temp_kelvin
             self._attr_color_temp_kelvin = color_temp_kelvin
             self._attr_color_mode = ColorMode.COLOR_TEMP
-        elif ATTR_RGBW_COLOR in kwargs:
-            rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
-            await self.coordinator.device_client.async_set_rgbw(rgbw_color)
+            attrs[CONF_CCT] = color_temp_kelvin
+        if ATTR_RGBW_COLOR in kwargs:
+            rgbw_color = kwargs[ATTR_RGBW_COLOR]
             self.coordinator.data.rgbw = rgbw_color
             self._attr_rgbw_color = rgbw_color
             self._attr_color_mode = ColorMode.RGBW
-        else:
-            await self.coordinator.device_client.async_turn_on()
+            attrs[CONF_RGBW] = rgbw_color
 
+        await self.coordinator.device_client.async_turn_on(attrs)
         self.coordinator.data.on = True
         self._attr_is_on = True
         self.async_write_ha_state()
 
+    @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
         await self.coordinator.device_client.async_turn_off()

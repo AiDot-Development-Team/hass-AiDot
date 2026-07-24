@@ -1,6 +1,6 @@
 """Config flow for Aidot integration."""
 
-from typing import Any
+from typing import Any, override
 
 from aidot.client import AidotClient
 from aidot.const import CONF_ID, DEFAULT_COUNTRY_CODE, SUPPORTED_COUNTRY_CODES
@@ -40,6 +40,7 @@ REAUTH_SCHEMA = vol.Schema(
 class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle aidot config flow."""
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
