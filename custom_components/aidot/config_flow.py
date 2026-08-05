@@ -13,6 +13,7 @@ from homeassistant.const import CONF_COUNTRY_CODE, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .auth import get_country_code, get_login_data
 from .const import DOMAIN
 
 DATA_SCHEMA = vol.Schema(
@@ -56,7 +57,7 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 login_info = await client.async_post_login()
             except AidotUserOrPassIncorrect:
                 errors["base"] = "invalid_auth"
-            except TimeoutError, ClientError:
+            except (TimeoutError, ClientError):
                 errors["base"] = "cannot_connect"
 
             if not errors:
@@ -85,31 +86,40 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle reauth confirmation."""
         errors: dict[str, str] = {}
         reauth_entry = self._get_reauth_entry()
+        login_data = get_login_data(reauth_entry.data)
+        country_code = get_country_code(reauth_entry.data)
+        username = login_data.get(CONF_USERNAME, "")
 
         if user_input is not None:
             client = AidotClient(
                 session=async_get_clientsession(self.hass),
-                country_code=reauth_entry.data[CONF_COUNTRY_CODE],
-                username=reauth_entry.data[CONF_USERNAME],
+                country_code=country_code,
+                username=username,
                 password=user_input[CONF_PASSWORD],
             )
             try:
                 login_info = await client.async_post_login()
             except AidotUserOrPassIncorrect:
                 errors["base"] = "invalid_auth"
-            except TimeoutError, ClientError:
+            except (TimeoutError, ClientError):
                 errors["base"] = "cannot_connect"
 
             if not errors:
+                # Replace, rather than merge, the entry so a stale legacy
+                # login_info dictionary cannot take precedence after reload.
                 return self.async_update_reload_and_abort(
-                    reauth_entry, data_updates=login_info
+                    reauth_entry,
+                    data={
+                        **login_info,
+                        CONF_COUNTRY_CODE: country_code,
+                        CONF_USERNAME: username,
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    },
                 )
 
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=REAUTH_SCHEMA,
-            description_placeholders={
-                "username": reauth_entry.data.get(CONF_USERNAME, "")
-            },
+            description_placeholders={"username": username},
             errors=errors,
         )

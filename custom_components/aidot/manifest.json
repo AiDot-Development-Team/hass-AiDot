@@ -16,7 +16,7 @@
   "iot_class": "local_polling",
   "quality_scale": "bronze",
   "requirements": [
-    "python-aidot==0.3.54b4"
+    "python-aidot==0.3.56"
   ],
-  "version": "1.1.4-beta.4"
+  "version": "1.1.4-beta.5"
 }

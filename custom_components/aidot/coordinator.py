@@ -21,6 +21,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from .auth import get_login_data
 from .const import DOMAIN
 
 type AidotConfigEntry = ConfigEntry[AidotDeviceManagerCoordinator]
@@ -81,7 +82,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         )
         self.client = AidotClient(
             session=async_get_clientsession(hass),
-            token=config_entry.data,
+            token=get_login_data(config_entry.data),
         )
         self.client.set_token_fresh_cb(self.token_fresh_cb)
         self.device_coordinators: dict[str, AidotDeviceUpdateCoordinator] = {}
