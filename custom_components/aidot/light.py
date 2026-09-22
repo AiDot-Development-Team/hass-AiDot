@@ -6,8 +6,10 @@ from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
+    ATTR_EFFECT,
     ColorMode,
     LightEntity,
+    LightEntityFeature,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
@@ -59,6 +61,9 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
             name=coordinator.device_client.info.name,
             hw_version=coordinator.device_client.info.hw_version,
         )
+        if coordinator.device_client.info.preset_names:
+            self._attr_effect_list = coordinator.device_client.info.preset_names
+            self._attr_supported_features = LightEntityFeature.EFFECT
         if coordinator.device_client.info.enable_rgbw:
             self._attr_color_mode = ColorMode.RGBW
             self._attr_supported_color_modes = {ColorMode.RGBW, ColorMode.COLOR_TEMP}
@@ -113,6 +118,10 @@ class AidotLight(CoordinatorEntity[AidotDeviceUpdateCoordinator], LightEntity):
             self.coordinator.data.rgbw = rgbw_color
             self._attr_rgbw_color = rgbw_color
             self._attr_color_mode = ColorMode.RGBW
+        elif ATTR_EFFECT in kwargs:
+            effect = kwargs.get(ATTR_EFFECT)
+            self._attr_effect = effect
+            await self.coordinator.device_client.async_set_effect(effect)
         else:
             # Nothing was requested to apply, so just switch it on.
             await self.coordinator.device_client.async_turn_on()
