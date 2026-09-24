@@ -85,6 +85,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         self.client = AidotClient(
             session=async_get_clientsession(hass),
             token=config_entry.data,
+            options=dict(config_entry.options),
         )
         self.client.set_token_fresh_cb(self.token_fresh_cb)
         self.device_coordinators: dict[str, AidotDeviceUpdateCoordinator] = {}

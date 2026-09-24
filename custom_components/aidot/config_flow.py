@@ -6,18 +6,30 @@ from aidot.client import AidotClient
 from aidot.const import CONF_ID, DEFAULT_COUNTRY_CODE, SUPPORTED_COUNTRY_CODES
 from aidot.exceptions import AidotUserOrPassIncorrect
 from aiohttp import ClientError
-import voluptuous as vol
+import probatio
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
 from homeassistant.const import CONF_COUNTRY_CODE, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import (
+    CONF_EFFECT_SOURCE,
+    DEFAULT_EFFECT_SOURCE,
+    DOMAIN,
+    EFFECT_SOURCE_ALL,
+    EFFECT_SOURCE_RECOMMENDED,
+)
 
-DATA_SCHEMA = vol.Schema(
+DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(
+        probatio.Required(
             CONF_COUNTRY_CODE,
             default=DEFAULT_COUNTRY_CODE,
         ): selector.CountrySelector(
@@ -25,14 +37,74 @@ DATA_SCHEMA = vol.Schema(
                 countries=SUPPORTED_COUNTRY_CODES,
             )
         ),
-        vol.Required(CONF_USERNAME): str,
-        vol.Required(CONF_PASSWORD): str,
+        probatio.Required(CONF_USERNAME): str,
+        probatio.Required(CONF_PASSWORD): str,
     }
 )
 
 
+def _effect_source_schema(default: str = DEFAULT_EFFECT_SOURCE) -> probatio.Schema:
+    """Return schema for effect source selection."""
+    return probatio.Schema(
+        {
+            probatio.Required(
+                CONF_EFFECT_SOURCE,
+                default=default,
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=EFFECT_SOURCE_ALL,
+                            label="All effects",
+                        ),
+                        selector.SelectOptionDict(
+                            value=EFFECT_SOURCE_RECOMMENDED,
+                            label="Recommended effects",
+                        ),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+    )
+
+
+EFFECT_SOURCE_SCHEMA = _effect_source_schema()
+
+
+class AidotOptionsFlowHandler(OptionsFlowWithReload):
+    """Handle Aidot options flow."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage Aidot options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_effect_source_schema(
+                self.config_entry.options.get(CONF_EFFECT_SOURCE, DEFAULT_EFFECT_SOURCE)
+            ),
+            errors={},
+        )
+
+
 class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle aidot config flow."""
+
+    _login_info: dict[str, Any]
+    _title: str
+
+    @staticmethod
+    @callback
+    @override
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> AidotOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return AidotOptionsFlowHandler()
 
     @override
     async def async_step_user(
@@ -57,11 +129,31 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 await self.async_set_unique_id(login_info[CONF_ID])
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=f"{user_input[CONF_USERNAME]} {user_input[CONF_COUNTRY_CODE]}",
-                    data=login_info,
+                self._login_info = login_info
+                self._title = (
+                    f"{user_input[CONF_USERNAME]} {user_input[CONF_COUNTRY_CODE]}"
                 )
+                return await self.async_step_effect_source()
 
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
+        )
+
+    async def async_step_effect_source(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle effect source selection."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title=self._title,
+                data=self._login_info,
+                options={
+                    CONF_EFFECT_SOURCE: user_input[CONF_EFFECT_SOURCE],
+                },
+            )
+
+        return self.async_show_form(
+            step_id="effect_source",
+            data_schema=EFFECT_SOURCE_SCHEMA,
+            errors={},
         )

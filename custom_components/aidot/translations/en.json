@@ -1,14 +1,23 @@
 {
     "config": {
         "abort": {
-            "already_configured": "The account in the current region has already been configured",
-            "reauth_successful": "Re-authentication was successful"
+            "already_configured": "Account is already configured"
         },
         "error": {
             "cannot_connect": "Failed to connect",
             "invalid_auth": "Invalid authentication"
         },
         "step": {
+            "effect_source": {
+                "data": {
+                    "effect_source": "Effects to show"
+                },
+                "data_description": {
+                    "effect_source": "Choose which effect list Home Assistant should show by default."
+                },
+                "description": "Different lights support different effects. Selecting all effects may make the effect list long. After setup, you can go to Settings > Devices & services > AiDot > Configure to choose which effects each light shows in Home Assistant.",
+                "title": "Effect list"
+            },
             "user": {
                 "data": {
                     "country_code": "Country",
@@ -16,22 +25,24 @@
                     "username": "Username"
                 },
                 "data_description": {
-                    "country_code": "The country selected by Aidot app when logging in",
-                    "password": "Password for logging in through Aidot app",
-                    "username": "Account logged in through Aidot app"
+                    "country_code": "The country selected by AiDot app when logging in",
+                    "password": "Password for logging in through AiDot app",
+                    "username": "Account logged in through AiDot app"
                 }
-            },
-            "reauth_confirm": {
-                "title": "Reauthenticate",
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
                 "data": {
-                    "password": "Password",
-                    "username": "Username"
+                    "effect_source": "Effects to show"
                 },
                 "data_description": {
-                    "password": "Password",
-                    "username": "Username"
+                    "effect_source": "Choose which effect list Home Assistant should show by default."
                 },
-                "description": "Please re-enter your credentials to re-authenticate."
+                "description": "Different lights support different effects. Selecting all effects may make the effect list long. After setup, you can go to Settings > Devices & services > AiDot > Configure to choose which effects each light shows in Home Assistant.",
+                "title": "Effect list"
             }
         }
     }

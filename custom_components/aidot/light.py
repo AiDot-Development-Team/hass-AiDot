@@ -5,8 +5,8 @@ from typing import Any, override
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
-    ATTR_RGBW_COLOR,
     ATTR_EFFECT,
+    ATTR_RGBW_COLOR,
     ColorMode,
     LightEntity,
     LightEntityFeature,
