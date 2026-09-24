@@ -1,10 +1,7 @@
 {
   "domain": "aidot",
   "name": "AiDot",
-  "codeowners": [
-    "@s1eedz",
-    "@HongBryan"
-  ],
+  "codeowners": ["@s1eedz", "@HongBryan"],
   "config_flow": true,
   "dhcp": [
     {
@@ -15,8 +12,6 @@
   "integration_type": "hub",
   "iot_class": "local_polling",
   "quality_scale": "bronze",
-  "requirements": [
-    "python-aidot==0.3.57"
-  ],
+  "requirements": ["python-aidot==0.3.58"],
   "version": "1.1.5"
 }
