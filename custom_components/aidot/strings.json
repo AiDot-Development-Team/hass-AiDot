@@ -43,6 +43,34 @@
         },
         "description": "Different lights support different effects. Selecting all effects may make the effect list long. After setup, you can go to Settings > Devices & services > AiDot > Configure to choose which effects each light shows in Home Assistant.",
         "title": "Effect list"
+      },
+      "manual_device": {
+        "data": {
+          "manual_device": "Light"
+        },
+        "data_description": {
+          "manual_device": "Select the light whose effects you want to configure."
+        },
+        "description": "Choose the light to configure.",
+        "title": "Manual effect selection"
+      },
+      "manual_effects": {
+        "data": {
+          "effect_selection": "Effects"
+        },
+        "data_description": {
+          "effect_selection": "Select the effects this light should show in Home Assistant."
+        },
+        "description": "Choose the effects each light should show in Home Assistant.",
+        "title": "Manual effect selection"
+      },
+      "manual_menu": {
+        "description": "The selected effects have been added. Configure another light or select Done to save your changes.",
+        "menu_options": {
+          "configure_another_light": "Configure another light",
+          "finish_manual_selection": "Done"
+        },
+        "title": "Manual effect selection"
       }
     }
   }
