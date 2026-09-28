@@ -1,19 +1,8 @@
 """Coordinator for Aidot."""
 
-from datetime import timedelta
 import logging
-from typing import override
-
-from aidot.client import AidotClient
-from aidot.const import (
-    CONF_ACCESS_TOKEN,
-    CONF_AES_KEY,
-    CONF_DEVICE_LIST,
-    CONF_ID,
-    CONF_TYPE,
-)
-from aidot.device_client import DeviceClient, DeviceStatusData
-from aidot.exceptions import AidotAuthFailed, AidotUserOrPassIncorrect
+from datetime import timedelta
+from typing import Any, override
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -22,7 +11,19 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import DOMAIN
+from aidot.client import AidotClient
+from aidot.const import (
+    CONF_ACCESS_TOKEN,
+    CONF_AES_KEY,
+    CONF_DEVICE_LIST,
+    CONF_EFFECTS,
+    CONF_ID,
+    CONF_TYPE,
+)
+from aidot.device_client import DeviceClient, DeviceStatusData
+from aidot.exceptions import AidotAuthFailed, AidotUserOrPassIncorrect
+
+from .const import CONF_EFFECT_SOURCE, DEFAULT_EFFECT_SOURCE, DOMAIN
 
 type AidotConfigEntry = ConfigEntry[AidotDeviceManagerCoordinator]
 _LOGGER = logging.getLogger(__name__)
@@ -89,6 +90,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
         )
         self.client.set_token_fresh_cb(self.token_fresh_cb)
         self.device_coordinators: dict[str, AidotDeviceUpdateCoordinator] = {}
+        self.devices_by_id: dict[str, dict[str, Any]] = {}
 
     @override
     async def _async_setup(self) -> None:
@@ -114,6 +116,7 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
                 and device[CONF_AES_KEY][0] is not None
             )
         }
+        self.devices_by_id = current_devices
 
         removed_ids = set(self.device_coordinators) - set(current_devices)
         for dev_id in removed_ids:
@@ -130,6 +133,24 @@ class AidotDeviceManagerCoordinator(DataUpdateCoordinator[None]):
                 )
                 await device_coordinator.async_config_entry_first_refresh()
                 self.device_coordinators[dev_id] = device_coordinator
+            else:
+                device_client = self.device_coordinators[dev_id].device_client
+                device_client.info.presets = device.get(CONF_EFFECTS, {})
+                device_client.info.preset_names = list(device_client.info.presets)
+
+    def update_options(self, options: dict[str, Any]) -> None:
+        """Update options without reloading the config entry."""
+        self.client.options = options.copy()
+        self.client.effect_source = self.client.options.get(
+            CONF_EFFECT_SOURCE, DEFAULT_EFFECT_SOURCE
+        )
+        for dev_id, device in self.devices_by_id.items():
+            if (device_coordinator := self.device_coordinators.get(dev_id)) is not None:
+                effects = self.client.get_filtered_effects(device)
+                device[CONF_EFFECTS] = effects
+                device_coordinator.device_client.info.presets = effects
+                device_coordinator.device_client.info.preset_names = list(effects)
+                device_coordinator.async_set_updated_data(device_coordinator.data)
 
     async def async_cleanup(self) -> None:
         """Perform cleanup actions."""

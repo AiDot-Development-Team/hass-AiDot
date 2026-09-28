@@ -2,22 +2,22 @@
 
 from typing import Any, override
 
-from aidot.client import AidotClient
-from aidot.const import CONF_ID, DEFAULT_COUNTRY_CODE, SUPPORTED_COUNTRY_CODES
-from aidot.exceptions import AidotUserOrPassIncorrect
-from aiohttp import ClientError
 import probatio
-
+from aiohttp import ClientError
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlowWithReload,
+    OptionsFlow,
 )
 from homeassistant.const import CONF_COUNTRY_CODE, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from aidot.client import AidotClient
+from aidot.const import CONF_ID, DEFAULT_COUNTRY_CODE, SUPPORTED_COUNTRY_CODES
+from aidot.exceptions import AidotUserOrPassIncorrect
 
 from .const import (
     CONF_EFFECT_SOURCE,
@@ -72,7 +72,7 @@ def _effect_source_schema(default: str = DEFAULT_EFFECT_SOURCE) -> probatio.Sche
 EFFECT_SOURCE_SCHEMA = _effect_source_schema()
 
 
-class AidotOptionsFlowHandler(OptionsFlowWithReload):
+class AidotOptionsFlowHandler(OptionsFlow):
     """Handle Aidot options flow."""
 
     async def async_step_init(
@@ -80,6 +80,8 @@ class AidotOptionsFlowHandler(OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Manage Aidot options."""
         if user_input is not None:
+            if (coordinator := getattr(self.config_entry, "runtime_data", None)) is not None:
+                coordinator.update_options(user_input)
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
