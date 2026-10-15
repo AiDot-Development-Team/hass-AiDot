@@ -34,15 +34,13 @@ rules:
   # Silver
   action-exceptions: todo
   config-entry-unloading: done
-  docs-configuration-parameters:
-    status: exempt
-    comment: This integration has no option flow.
+  docs-configuration-parameters: todo
   docs-installation-parameters: done
   entity-unavailable: done
   integration-owner: done
   log-when-unavailable: done
   parallel-updates: todo
-  reauthentication-flow: todo
+  reauthentication-flow: done
   test-coverage: todo
 
   # Gold
