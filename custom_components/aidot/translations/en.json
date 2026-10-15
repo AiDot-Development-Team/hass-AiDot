@@ -1,7 +1,8 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Account is already configured"
+            "already_configured": "Account is already configured",
+            "unique_id_mismatch": "The credentials belong to a different AiDot account. Please log in with the account that was originally set up."
         },
         "error": {
             "cannot_connect": "Failed to connect",
@@ -18,6 +19,15 @@
                 "description": "Different lights support different effects. Selecting all effects may make the effect list long. After setup, you can go to Settings > Devices & services > AiDot > Configure to choose which effects each light shows in Home Assistant.",
                 "title": "Effect list"
             },
+            "reauth_confirm": {
+                "data": {
+                    "password": "Password"
+                },
+                "data_description": {
+                    "password": "Password for logging in through AiDot app"
+                },
+                "description": "The AiDot login for {username} is no longer valid. Please enter your password to log in again."
+            },
             "user": {
                 "data": {
                     "country_code": "Country",
@@ -30,6 +40,11 @@
                     "username": "Account logged in through AiDot app"
                 }
             }
+        }
+    },
+    "exceptions": {
+        "invalid_auth": {
+            "message": "Invalid authentication"
         }
     },
     "options": {
