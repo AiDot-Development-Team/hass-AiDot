@@ -13,6 +13,7 @@ from homeassistant.const import CONF_COUNTRY_CODE, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .auth import get_country_code, get_login_data
 from .const import DOMAIN
 
 DATA_SCHEMA = vol.Schema(
@@ -26,6 +27,12 @@ DATA_SCHEMA = vol.Schema(
             )
         ),
         vol.Required(CONF_USERNAME): str,
+        vol.Required(CONF_PASSWORD): str,
+    }
+)
+
+REAUTH_SCHEMA = vol.Schema(
+    {
         vol.Required(CONF_PASSWORD): str,
     }
 )
@@ -51,7 +58,7 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 login_info = await client.async_post_login()
             except AidotUserOrPassIncorrect:
                 errors["base"] = "invalid_auth"
-            except TimeoutError, ClientError:
+            except (TimeoutError, ClientError):
                 errors["base"] = "cannot_connect"
 
             if not errors:
@@ -59,9 +66,63 @@ class AidotConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=f"{user_input[CONF_USERNAME]} {user_input[CONF_COUNTRY_CODE]}",
-                    data=login_info,
+                    data={
+                        **login_info,
+                        CONF_COUNTRY_CODE: user_input[CONF_COUNTRY_CODE],
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    },
                 )
 
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
+        )
+
+    @override
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        """Handle reauth flow."""
+        return await self.async_step_reauth_confirm()
+
+    @override
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reauth confirmation."""
+        errors: dict[str, str] = {}
+        reauth_entry = self._get_reauth_entry()
+        login_data = get_login_data(reauth_entry.data)
+        country_code = get_country_code(reauth_entry.data)
+        username = login_data.get(CONF_USERNAME, "")
+
+        if user_input is not None:
+            client = AidotClient(
+                session=async_get_clientsession(self.hass),
+                country_code=country_code,
+                username=username,
+                password=user_input[CONF_PASSWORD],
+            )
+            try:
+                login_info = await client.async_post_login()
+            except AidotUserOrPassIncorrect:
+                errors["base"] = "invalid_auth"
+            except (TimeoutError, ClientError):
+                errors["base"] = "cannot_connect"
+
+            if not errors:
+                # Replace, rather than merge, the entry so a stale legacy
+                # login_info dictionary cannot take precedence after reload.
+                return self.async_update_reload_and_abort(
+                    reauth_entry,
+                    data={
+                        **login_info,
+                        CONF_COUNTRY_CODE: country_code,
+                        CONF_USERNAME: username,
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=REAUTH_SCHEMA,
+            description_placeholders={"username": username},
+            errors=errors,
         )

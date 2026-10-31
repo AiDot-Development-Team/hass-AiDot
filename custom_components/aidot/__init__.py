@@ -4,8 +4,15 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .coordinator import AidotConfigEntry, AidotDeviceManagerCoordinator
+from .logging_utils import configure_library_logging
 
-PLATFORMS: list[Platform] = [Platform.LIGHT]
+configure_library_logging()
+
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.LIGHT,
+    Platform.SENSOR,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AidotConfigEntry) -> bool:

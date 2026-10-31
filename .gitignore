@@ -1,0 +1,7 @@
+# Local test virtualenv
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/

@@ -8,6 +8,13 @@
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]"
     },
     "step": {
+      "reauth_confirm": {
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        },
+        "description": "The AiDot account needs to be re-authenticated. Please enter the password for {username}.",
+        "title": "[%key:common::config_flow::title::reauth%]"
+      },
       "user": {
         "data": {
           "country_code": "Country",
@@ -19,6 +26,45 @@
           "password": "Password for logging in through AiDot app",
           "username": "Account logged in through AiDot app"
         }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "alarm_status": {
+        "name": "Alarm status"
+      },
+      "battery_charging": {
+        "name": "Battery charging"
+      },
+      "energy_saving_enabled": {
+        "name": "Energy saving"
+      },
+      "security_alarm": {
+        "name": "Security alarm"
+      },
+      "telemetry_connectivity": {
+        "name": "Telemetry connectivity"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "mesh_signal_strength": {
+        "name": "Mesh signal strength"
+      },
+      "last_telemetry_update": {
+        "name": "Last telemetry update"
+      },
+      "energy_saving_factor": {
+        "name": "Energy saving factor"
+      },
+      "light_duration": {
+        "name": "Lighting duration"
+      },
+      "detection_mode": {
+        "name": "Detection mode"
       }
     }
   }
